@@ -1,6 +1,7 @@
 import numpy as np
 import math, time, collections, os, errno, sys, code, random
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from sklearn import mixture
@@ -8,9 +9,10 @@ from sklearn.cluster import KMeans
 import pandas as pd
 from multiprocessing import Pool
 
-from src.TICC_helper import *
-from src.admm_solver import ADMMSolver
+import pandas as pd
 
+from thirdparty.TICC.src.TICC_helper import *
+from thirdparty.TICC.src.admm_solver import ADMMSolver
 
 
 class TICC:
@@ -116,22 +118,20 @@ class TICC:
             print("UPDATED THE OLD COVARIANCE")
 
             self.trained_model = {'cluster_mean_info': cluster_mean_info,
-                                 'computed_covariance': computed_covariance,
-                                 'cluster_mean_stacked_info': cluster_mean_stacked_info,
-                                 'complete_D_train': complete_D_train,
-                                 'time_series_col_size': time_series_col_size}
+                                  'computed_covariance': computed_covariance,
+                                  'cluster_mean_stacked_info': cluster_mean_stacked_info,
+                                  'complete_D_train': complete_D_train,
+                                  'time_series_col_size': time_series_col_size}
             clustered_points = self.predict_clusters()
 
             # recalculate lengths
-            new_train_clusters = collections.defaultdict(list) # {cluster: [point indices]}
+            new_train_clusters = collections.defaultdict(list)  # {cluster: [point indices]}
             for point, cluster in enumerate(clustered_points):
                 new_train_clusters[cluster].append(point)
 
             len_new_train_clusters = {k: len(new_train_clusters[k]) for k in range(self.number_of_clusters)}
 
             before_empty_cluster_assign = clustered_points.copy()
-
-
 
             if iters != 0:
                 cluster_norms = [(np.linalg.norm(old_computed_covariance[self.number_of_clusters, i]), i) for i in
@@ -165,7 +165,8 @@ class TICC:
                                   (self.window_size - 1) * time_series_col_size:self.window_size * time_series_col_size]
 
             for cluster_num in range(self.number_of_clusters):
-                print("length of cluster #", cluster_num, "-------->", sum([x == cluster_num for x in clustered_points]))
+                print("length of cluster #", cluster_num, "-------->",
+                      sum([x == cluster_num for x in clustered_points]))
 
             self.write_plot(clustered_points, str_NULL, training_indices)
 
@@ -322,7 +323,7 @@ class TICC:
 
                 cluster_mean_info[self.number_of_clusters, cluster] = np.mean(D_train, axis=0)[
                                                                       (
-                                                                          self.window_size - 1) * n:self.window_size * n].reshape(
+                                                                              self.window_size - 1) * n:self.window_size * n].reshape(
                     [1, n])
                 cluster_mean_stacked_info[self.number_of_clusters, cluster] = np.mean(D_train, axis=0)
                 ##Fit a model - OPTIMIZATION
@@ -358,11 +359,17 @@ class TICC:
 
         return str_NULL
 
-    def load_data(self, input_file):
+    def load_data_txt(self, input_file):
         Data = np.loadtxt(input_file, delimiter=",")
         (m, n) = Data.shape  # m: num of observations, n: size of observation vector
         print("completed getting the data")
         return Data, m, n
+
+    def load_data_pandas(self, df):
+        (m, n) = df.shape
+        return df.values, m, n
+
+    load_data = load_data_pandas
 
     def log_parameters(self):
         print("lam_sparse", self.lambda_parameter)
@@ -370,7 +377,7 @@ class TICC:
         print("num_cluster", self.number_of_clusters)
         print("num stacked", self.window_size)
 
-    def predict_clusters(self, test_data = None):
+    def predict_clusters(self, test_data=None):
         '''
         Given the current trained model, predict clusters.  If the cluster segmentation has not been optimized yet,
         than this will be part of the interative process.
@@ -398,4 +405,4 @@ class TICC:
         # Update cluster points - using NEW smoothening
         clustered_points = updateClusters(lle_all_points_clusters, switch_penalty=self.switch_penalty)
 
-        return(clustered_points)
+        return (clustered_points)
